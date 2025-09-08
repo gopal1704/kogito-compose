@@ -38,6 +38,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    
 
   # --- Kogito Data Index (PostgreSQL-backed) ---
   data-index:
@@ -54,7 +55,7 @@ services:
       - QUARKUS_DATASOURCE_PASSWORD=kogito
       - QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION=update
       - QUARKUS_HTTP_CORS=true
-      - QUARKUS_HTTP_CORS_ORIGINS=http://localhost:8180
+      - QUARKUS_HTTP_CORS_ORIGINS=http://localhost:8180,http://localhost:8280
       - QUARKUS_HTTP_CORS_METHODS=GET,POST,PUT,DELETE,OPTIONS
       - QUARKUS_HTTP_CORS_HEADERS=accept,authorization,content-type,x-requested-with
       - QUARKUS_HTTP_PORT=8080
@@ -62,6 +63,7 @@ services:
       - KOGITO_DATA_INDEX_ADDON_PROCESSES=true
       - KOGITO_DATA_INDEX_ADDON_DECISIONS=true   # only if you run DMN/decisions
       - KOGITO_DATA_INDEX_ADDON_JOBS=true  
+      - KOGITO_SERVICE_URL=http://kogito-demo-app:8086
     ports:
       - "8080:8080"
 
@@ -101,13 +103,33 @@ services:
       - keycloak_data:/opt/jboss/keycloak/standalone/data
 
   kogito-demo-app:
-    image: kogito-demo-app:latest   
-    container_name: kogito-demo-app
+    image: kogito-task-demo
+    container_name: kogito-task-demo
     ports:
       - "8086:8080"
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KOGITO_DATAINDEX_HTTP_URL=http://data-index:8080
+      - KOGITO_SERVICE_URL=http://kogito-demo-app:8080
+
     depends_on:
       - kafka
+
+  
+  task-console:
+    image: quay.io/kiegroup/kogito-task-console:latest
+    environment:
+      - KOGITO_DATAINDEX_HTTP_URL=http://localhost:8080/graphql
+      - KOGITO_CONSOLES_KEYCLOAK_CONFIG_REALM=kogito
+      - KOGITO_CONSOLES_KEYCLOAK_CONFIG_URL=http://localhost:8111/auth
+      - KOGITO_CONSOLES_KEYCLOAK_CONFIG_CLIENT_ID=kogito-task-console
+      - KOGITO_CONSOLES_KEYCLOAK_CONFIG_HEALTH_CHECK_URL=http://localhost:8111/auth/realms/kogito/.well-known/openid-configuration
+      
+    ports:
+      - "8280:8080"
+    depends_on:
+      - data-index
+      
+
 volumes:
   keycloak_data:
